@@ -8,7 +8,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import torch
-from whole_body_tracking.tasks.locomotion.mdp.commands import CustomUniformVelocityCommand
+from .commands import CustomUniformVelocityCommand
 
 from isaaclab.managers import SceneEntityCfg
 from isaaclab.sensors import ContactSensor
