@@ -9,3 +9,4 @@ Import concrete robot packages to trigger gym environment registration.
 """
 
 from . import l7_29dof  # noqa: F401
+from . import linglong_30dof  # noqa: F401
