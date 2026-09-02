@@ -86,3 +86,15 @@ def feet_contact_number_sum(
     feet_contact = contact_sensor.data.net_forces_w[:, sensor_cfg.body_ids, 2] > threshold
     actual_contact_num = torch.sum(feet_contact.float(), dim=1)
     return torch.where(actual_contact_num == command.contact_number_des, 1.0, -0.2)
+
+
+def bad_contacts_task(
+    env: ManagerBasedRLEnv,
+    threshold: float,
+    sensor_cfg: SceneEntityCfg,
+) -> torch.Tensor:
+    """Terminate when any configured LingLong trunk body exceeds the contact threshold."""
+    contact_sensor: ContactSensor = env.scene.sensors[sensor_cfg.name]
+    force_history = contact_sensor.data.net_forces_w_history[:, :, sensor_cfg.body_ids]
+    force_magnitude = torch.linalg.vector_norm(force_history, dim=-1)
+    return torch.amax(force_magnitude, dim=(1, 2)) > threshold

@@ -105,3 +105,4 @@ class LingLong30DofLocomotionEnvCfg(LocomotionEnvCfg):
             "contact_forces",
             body_names=["base_link", "waist_yaw_link", "waist_pitch_link"],
         )
+        self.terminations.bad_contact.func = linglong_mdp.bad_contacts_task
