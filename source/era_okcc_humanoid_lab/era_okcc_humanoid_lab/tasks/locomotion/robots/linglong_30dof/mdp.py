@@ -68,9 +68,6 @@ class LingLongUniformVelocityCommand(CustomUniformVelocityCommand):
         if standing_env_ids.numel() == 0:
             return
 
-        # A zero velocity command alone is not enough because the base gait
-        # generator continues alternating the feet.  For standing samples,
-        # keep both feet in contact and use the neutral joint pose as reference.
         self.ref_action[standing_env_ids] = 0.0
         self.stance_mask[standing_env_ids] = True
         self.swing_phase[standing_env_ids] = 0.0
@@ -78,6 +75,61 @@ class LingLongUniformVelocityCommand(CustomUniformVelocityCommand):
         self.contact_number_des[standing_env_ids] = 2
         self.feet_desired_x[standing_env_ids] = 0.0
         self.feet_desired_z[standing_env_ids] = 0.0
+
+
+def _standing_mask(env: ManagerBasedRLEnv, command_name: str) -> torch.Tensor:
+    """Return a float mask that is one only for explicit standing samples."""
+    command: LingLongUniformVelocityCommand = env.command_manager.get_term(command_name)
+    return command.is_standing_env.float()
+
+
+def standing_leg_joint_pos_l2(
+    env: ManagerBasedRLEnv,
+    command_name: str,
+    asset_cfg: SceneEntityCfg,
+) -> torch.Tensor:
+    """Penalize leg pose deviation from the default pose only while standing."""
+    asset = env.scene[asset_cfg.name]
+    joint_error = (
+        asset.data.joint_pos[:, asset_cfg.joint_ids]
+        - asset.data.default_joint_pos[:, asset_cfg.joint_ids]
+    )
+    return torch.mean(joint_error.square(), dim=1) * _standing_mask(env, command_name)
+
+
+def standing_leg_joint_vel_l2(
+    env: ManagerBasedRLEnv,
+    command_name: str,
+    asset_cfg: SceneEntityCfg,
+) -> torch.Tensor:
+    """Penalize moving leg joints only while standing."""
+    asset = env.scene[asset_cfg.name]
+    joint_vel = asset.data.joint_vel[:, asset_cfg.joint_ids]
+    return torch.sum(joint_vel.square(), dim=1) * _standing_mask(env, command_name)
+
+
+def standing_feet_lin_vel_l2(
+    env: ManagerBasedRLEnv,
+    command_name: str,
+    asset_cfg: SceneEntityCfg,
+) -> torch.Tensor:
+    """Penalize foot motion only while standing."""
+    asset = env.scene[asset_cfg.name]
+    feet_vel = asset.data.body_lin_vel_w[:, asset_cfg.body_ids, :]
+    return torch.sum(feet_vel.square(), dim=(1, 2)) * _standing_mask(env, command_name)
+
+
+def standing_feet_airborne(
+    env: ManagerBasedRLEnv,
+    command_name: str,
+    sensor_cfg: SceneEntityCfg,
+    threshold: float = 1.0,
+) -> torch.Tensor:
+    """Penalize either foot losing ground contact only while standing."""
+    contact_sensor: ContactSensor = env.scene.sensors[sensor_cfg.name]
+    feet_contact = contact_sensor.data.net_forces_w[:, sensor_cfg.body_ids, 2] > threshold
+    airborne_ratio = torch.mean((~feet_contact).float(), dim=1)
+    return airborne_ratio * _standing_mask(env, command_name)
 
 
 def feet_contact_number(
