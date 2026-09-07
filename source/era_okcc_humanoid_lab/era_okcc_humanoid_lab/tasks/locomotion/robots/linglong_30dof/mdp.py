@@ -60,6 +60,25 @@ class LingLongUniformVelocityCommand(CustomUniformVelocityCommand):
 
         return hip - self._neutral_hip, knee - self._neutral_knee
 
+    def _update_command(self) -> None:
+        """Update walking references and replace standing references with a static stance."""
+        super()._update_command()
+
+        standing_env_ids = self.is_standing_env.nonzero(as_tuple=False).flatten()
+        if standing_env_ids.numel() == 0:
+            return
+
+        # A zero velocity command alone is not enough because the base gait
+        # generator continues alternating the feet.  For standing samples,
+        # keep both feet in contact and use the neutral joint pose as reference.
+        self.ref_action[standing_env_ids] = 0.0
+        self.stance_mask[standing_env_ids] = True
+        self.swing_phase[standing_env_ids] = 0.0
+        self.stance_phase[standing_env_ids] = 0.0
+        self.contact_number_des[standing_env_ids] = 2
+        self.feet_desired_x[standing_env_ids] = 0.0
+        self.feet_desired_z[standing_env_ids] = 0.0
+
 
 def feet_contact_number(
     env: ManagerBasedRLEnv,

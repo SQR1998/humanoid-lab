@@ -106,3 +106,16 @@ class LingLong30DofLocomotionEnvCfg(LocomotionEnvCfg):
             body_names=["base_link", "waist_yaw_link", "waist_pitch_link"],
         )
         self.terminations.bad_contact.func = linglong_mdp.bad_contacts_task
+
+
+@configclass
+class LingLong30DofLocomotionStandEnvCfg(LingLong30DofLocomotionEnvCfg):
+    """LingLong locomotion task with explicit zero-command standing samples."""
+
+    def __post_init__(self):
+        super().__post_init__()
+
+        # Twenty percent of command resamples request a true static stance.
+        # The command term then keeps both feet planted and uses the neutral
+        # joint pose instead of continuing the alternating walking reference.
+        self.commands.loco_command.rel_standing_envs = 0.2
